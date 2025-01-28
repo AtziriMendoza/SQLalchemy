@@ -46,8 +46,9 @@ def home():
         f"/api/v1.0/precipitation <br/>"
         f"/api/v1.0/stations <br/>"
         f"/api/v1.0/tobs <br/>"
-        f"/api/v1.0/<start> <br/>"
-        f"/api/v1.0/<start>/<end> <br/>"
+        f"Dynamic Routes: <br/>"
+        f"Enter a date after the /: /api/v1.0/<start> <br/>"
+        f"Enter a start (after 1st /) and end date(after 2nd /): /api/v1.0/<start>/<end> <br/>"
     )
 @app.route("/api/v1.0/precipitation")
 def precipitation():
@@ -80,16 +81,16 @@ def stations():
 
 @app.route("/api/v1.0/tobs")
 
-#####DEBUG THIS CODE###
 def tobs():
     session = Session(engine)
     temps = session.query(measurement.tobs).\
         filter(measurement.date >= dt.date(2016, 8, 23)).\
         filter(measurement.station == "USC00519281")
     session.close()
+    most_active_station_temps = [temp[0] for temp in temps]  # Flatten the list of tuples- temp[0] is the first index 
     # most_active_station_temps = list(np.ravel(temps))
     # return jsonify(most_active_station_temps)
-    return jsonify(temps)
+    return jsonify(most_active_station_temps)
 
 ########
 # @app.route("/api/v1.0/<start>")
@@ -107,9 +108,97 @@ def tobs():
 #     canon = start.replace().lower()
 #     return jsonify(starting)    
 #####
-# @app.route("/api/v1.0/<start>")
-# def Start(start):
-#     canon = real_name.replace
+@app.route("/api/v1.0/<start>")
+def start_date(start):
+    session = Session(engine)
+
+    sel = [measurement.date, 
+    func.min(measurement.tobs), 
+    func.max(measurement.tobs), 
+    func.sum(measurement.tobs)/func.count(measurement.tobs)]
+
+    query_results = session.query(*sel).\
+    filter(measurement.date >= start).\
+    group_by(measurement.date).all()
+
+    session.close()
+    # for x in query_results:
+    #    print(x)
+
+    datesNtemps = []
+    for date, min_temp, max_temp, avg_temp in query_results:
+        start_dict = {}
+        start_dict['date'] = date
+        start_dict['min_temp'] = min_temp
+        start_dict['max_temp'] = max_temp
+        start_dict['avg_temp'] = avg_temp
+        datesNtemps.append(start_dict)
+
+    return jsonify(datesNtemps)
+
+
+###this is a way to get the information but it 
 # @app.route("/api/v1.0/<start>/<end>")
+# def StartEnd(start, end):
+#     session = Session(engine)
+#     sel = [
+#         measurement.date,
+#         func.min(measurement.tobs),
+#         func.max(measurement.tobs),
+#         func.sum(measurement.tobs) / func.count(measurement.tobs),
+#         ]
+
+#     # Query the database for data starting from the specified date
+#     query_result = session.query(*sel).\
+#         filter(measurement.date >= start).\
+#         filter(measurement.date <= end).\
+#         group_by(measurement.date).all()
+#     session.close()
+#     # Format the results into a list of dictionaries
+#     startNend = []
+#     for date, min_temp, max_temp, avg_temp in query_result:
+#         startNend_dict = {
+#             "date": date,
+#             "min_temp": min_temp,
+#             "max_temp": max_temp,
+#             "avg_temp": avg_temp
+#             }
+#     startNend.append(startNend_dict)
+#     return jsonify(startNend)
+
+@app.route("/api/v1.0/<start>/<end>")
+def StartEnd(start=None, end=None): """Return TMIN, TAVG, TMAX."""
+    session = Session(engine)
+    sel = [
+        measurement.date,
+        func.min(measurement.tobs),
+        func.max(measurement.tobs),
+        func.sum(measurement.tobs) / func.count(measurement.tobs),
+        ]
+
+    # Query the database for data starting from the specified date
+    query_result = session.query(*sel).\
+        filter(measurement.date >= start).\
+        filter(measurement.date <= end).\
+        group_by(measurement.date).all()
+    session.close()
+
+    if query_result and query_result[0][0] is not None:
+        date, min_temp, max_temp, avg_temp = query_result[0]
+        result = {
+            "start_date": start,
+            "end_date": end,
+            "min_temp": min_temp,
+            "max_temp": max_temp,
+            "avg_temp": avg_temp            
+        }
+    else:
+        result = {
+            "start_date": start,
+            "end_date": end,
+            "message": "No data available for the specified range."
+        }
+    return jsonify(result)
+
 if __name__ == "__main__":
     app.run(debug=True)
