@@ -145,7 +145,7 @@ def start_date(start):
 #         measurement.date,
 #         func.min(measurement.tobs),
 #         func.max(measurement.tobs),
-#         func.sum(measurement.tobs) / func.count(measurement.tobs),
+#         func.avg(measurement.tobs)
 #         ]
 
 #     # Query the database for data starting from the specified date
@@ -167,13 +167,13 @@ def start_date(start):
 #     return jsonify(startNend)
 
 @app.route("/api/v1.0/<start>/<end>")
-def StartEnd(start=None, end=None): """Return TMIN, TAVG, TMAX."""
+def StartEnd(start, end):
     session = Session(engine)
     sel = [
         measurement.date,
         func.min(measurement.tobs),
         func.max(measurement.tobs),
-        func.sum(measurement.tobs) / func.count(measurement.tobs),
+        func.avg(measurement.tobs)
         ]
 
     # Query the database for data starting from the specified date
@@ -182,7 +182,7 @@ def StartEnd(start=None, end=None): """Return TMIN, TAVG, TMAX."""
         filter(measurement.date <= end).\
         group_by(measurement.date).all()
     session.close()
-
+    # Format the results into a list of dictionaries
     if query_result and query_result[0][0] is not None:
         date, min_temp, max_temp, avg_temp = query_result[0]
         result = {
@@ -199,6 +199,39 @@ def StartEnd(start=None, end=None): """Return TMIN, TAVG, TMAX."""
             "message": "No data available for the specified range."
         }
     return jsonify(result)
+# @app.route("/api/v1.0/<start>/<end>")
+# def StartEnd(start=None, end=None): """Return TMIN, TAVG, TMAX."""
+#     session = Session(engine)
+#     sel = [
+#         measurement.date,
+#         func.min(measurement.tobs),
+#         func.max(measurement.tobs),
+#         func.sum(measurement.tobs) / func.count(measurement.tobs),
+#         ]
+
+#     # Query the database for data starting from the specified date
+#     query_result = session.query(*sel).\
+#         filter(measurement.date >= start).\
+#         filter(measurement.date <= end).\
+#         group_by(measurement.date).all()
+#     session.close()
+
+#     if query_result and query_result[0][0] is not None:
+#         date, min_temp, max_temp, avg_temp = query_result[0]
+#         result = {
+#             "start_date": start,
+#             "end_date": end,
+#             "min_temp": min_temp,
+#             "max_temp": max_temp,
+#             "avg_temp": avg_temp            
+#         }
+#     else:
+#         result = {
+#             "start_date": start,
+#             "end_date": end,
+#             "message": "No data available for the specified range."
+#         }
+#     return jsonify(result)
 
 if __name__ == "__main__":
     app.run(debug=True)
